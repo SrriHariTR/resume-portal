@@ -26,10 +26,27 @@ const accountName = "srristorage123";
 const connectionString =
   process.env.AZURE_STORAGE_CONNECTION_STRING;
 
+const accountKey =
+  process.env.AZURE_STORAGE_ACCOUNT_KEY;
+
+const sharedKeyCredential =
+  new StorageSharedKeyCredential(
+    accountName,
+    accountKey
+  );
+
 const blobServiceClient =
   BlobServiceClient.fromConnectionString(
     connectionString
   );
+
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
 
 app.get("/", (req, res) => {
   res.send("Resume Portal Backend Running");
@@ -160,3 +177,4 @@ app.listen(3000, () => {
     "Server running on port 3000"
   );
 });
+
