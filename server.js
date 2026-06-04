@@ -9,6 +9,10 @@ const {
   StorageSharedKeyCredential
 } = require("@azure/storage-blob");
 
+const upload = multer({
+  storage: multer.memoryStorage(),
+});
+
 const app = express();
 
 app.use(cors());
@@ -26,6 +30,10 @@ const blobServiceClient =
   BlobServiceClient.fromConnectionString(
     connectionString
   );
+
+app.get("/", (req, res) => {
+  res.send("Resume Portal Backend Running");
+});
 
 app.get("/submissions", async (req, res) => {
 
