@@ -43,7 +43,7 @@ const pool = new Pool({
 });
 
 app.get("/", (req, res) => {
-  res.send("Running");
+  res.send("Hi Running");
 });
 
 app.get("/submissions", async (req, res) => {
