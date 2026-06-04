@@ -6,7 +6,7 @@ const { BlobServiceClient } = require("@azure/storage-blob");
 const {
   BlobSASPermissions,
   generateBlobSASQueryParameters,
-  StorageSharedKeyCredential
+  StorageSharedKeyCredential,
 } = require("@azure/storage-blob");
 
 const upload = multer({
@@ -18,27 +18,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
 require("dotenv").config();
 
 const accountName = "srristorage123";
 
-const connectionString =
-  process.env.AZURE_STORAGE_CONNECTION_STRING;
+const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
-const accountKey =
-  process.env.AZURE_STORAGE_ACCOUNT_KEY;
+const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
 
-const sharedKeyCredential =
-  new StorageSharedKeyCredential(
-    accountName,
-    accountKey
-  );
+const sharedKeyCredential = new StorageSharedKeyCredential(
+  accountName,
+  accountKey,
+);
 
 const blobServiceClient =
-  BlobServiceClient.fromConnectionString(
-    connectionString
-  );
+  BlobServiceClient.fromConnectionString(connectionString);
 
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -49,132 +43,91 @@ const pool = new Pool({
 });
 
 app.get("/", (req, res) => {
-  res.send("Resume Portal Backend Running");
+  res.send("Running");
 });
 
 app.get("/submissions", async (req, res) => {
-
   try {
-
     const result = await pool.query(
-      "SELECT * FROM submissions ORDER BY id DESC"
+      "SELECT * FROM submissions ORDER BY id DESC",
     );
 
     res.json(result.rows);
-
   } catch (err) {
-
     console.log(err);
 
     res.status(500).json({
-      error: err.message
+      error: err.message,
     });
-
   }
-
 });
 
-app.post(
-  "/submit",
-  upload.single("file"),
-  async (req, res) => {
-    try {
-      const { name, email } = req.body;
+app.post("/submit", upload.single("file"), async (req, res) => {
+  try {
+    const { name, email } = req.body;
 
-      const containerClient =
-        blobServiceClient.getContainerClient(
-          "uploads"
-        );
+    const containerClient = blobServiceClient.getContainerClient("uploads");
 
-      const fileName =
-        Date.now() +
-        "-" +
-        req.file.originalname;
+    const fileName = Date.now() + "-" + req.file.originalname;
 
-      const blockBlobClient =
-        containerClient.getBlockBlobClient(
-          fileName
-        );
+    const blockBlobClient = containerClient.getBlockBlobClient(fileName);
 
-     await blockBlobClient.uploadData(
-  req.file.buffer,
-  {
-    blobHTTPHeaders: {
-      blobContentType: "application/pdf",
-      blobContentDisposition: "inline"
-    }
-  }
-);
-      const blobName = fileName;
+    await blockBlobClient.uploadData(req.file.buffer, {
+      blobHTTPHeaders: {
+        blobContentType: "application/pdf",
+        blobContentDisposition: "inline",
+      },
+    });
+    const blobName = fileName;
 
-await pool.query(
-  `INSERT INTO submissions
+    await pool.query(
+      `INSERT INTO submissions
   (name,email,resume_url)
   VALUES($1,$2,$3)`,
-  [name,email,blobName]
-);
+      [name, email, blobName],
+    );
 
-      res.json({
-        success: true,
-        resume_url: blobName
-      });
+    res.json({
+      success: true,
+      resume_url: blobName,
+    });
+  } catch (err) {
+    console.error(err);
 
-    } catch (err) {
-
-      console.error(err);
-
-      res.status(500).json({
-        error: err.message
-      });
-
-    }
+    res.status(500).json({
+      error: err.message,
+    });
   }
-);
+});
 
-app.get("/resume/:blobName", async (req,res)=>{
+app.get("/resume/:blobName", async (req, res) => {
+  try {
+    const blobName = req.params.blobName;
 
-  try{
+    const expiresOn = new Date(Date.now() + 10000);
 
-    const blobName =
-      req.params.blobName;
+    const sasToken = generateBlobSASQueryParameters(
+      {
+        containerName: "uploads",
+        blobName,
+        permissions: BlobSASPermissions.parse("r"),
+        expiresOn,
+      },
+      sharedKeyCredential,
+    ).toString();
 
-    const expiresOn =
-      new Date(
-        Date.now() + 10000
-      );
-
-    const sasToken =
-      generateBlobSASQueryParameters(
-        {
-          containerName:"uploads",
-          blobName,
-          permissions:
-            BlobSASPermissions.parse("r"),
-          expiresOn
-        },
-        sharedKeyCredential
-      ).toString();
-
-    const url =
-      `https://${accountName}.blob.core.windows.net/uploads/${blobName}?${sasToken}`;
-	console.log(url);
+    const url = `https://${accountName}.blob.core.windows.net/uploads/${blobName}?${sasToken}`;
+    console.log(url);
     res.json({ url });
-
-  }catch(err){
-
+  } catch (err) {
     console.log(err);
 
     res.status(500).json({
-      error:err.message
+      error: err.message,
     });
-
   }
-
 });
 
 app.listen(3000, () => {
-  console.log(
-    "Server running on port 3000"
-  );
+  console.log("Server running on port 3000");
 });
-
