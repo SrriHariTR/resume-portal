@@ -27,6 +27,10 @@ const blobServiceClient =
     connectionString
   );
 
+app.get("/", (req, res) => {
+  res.send("Backend Running");
+});
+
 app.get("/submissions", async (req, res) => {
 
   try {
